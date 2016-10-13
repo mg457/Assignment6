@@ -7,15 +7,15 @@ import java.util.Set;
 import java.util.Random;
 
 import ml.data.DataSet;
+import ml.data.DataSetSplit;
 import ml.data.Example;
 
-// TODO: FIX ME SO THAT I'M NOT JUST THE PERCEPTRON!
 
 /**
  * Gradient descent classifier allowing for two different loss functions and
  * three different regularization settings.
  * 
- * @author dkauchak
+ * @author Maddie Gordon
  *
  */
 public class GradientDescentClassifier implements Classifier {
@@ -33,14 +33,15 @@ public class GradientDescentClassifier implements Classifier {
 	
 	protected int iterations = 10;
 	
-	protected int lossFun = EXPONENTIAL_LOSS;
-	protected double lambda = 0.1;
-	protected int regularization = NO_REGULARIZATION;
+	protected int lossFun = EXPONENTIAL_LOSS; //specifies loss function to use in training
+	protected double lambda = 0.1; 
+	protected int regularization = NO_REGULARIZATION; //specifies regularization method to use in training
 	protected double eta = 0.1;
 	
 	/**
 	 * Select which loss function to use
-	 * @param functionNum
+	 * 
+	 * @param functionNum the number associated with a specific loss function
 	 */
 	protected void setLoss(int functionNum) {
 		if(functionNum == 0) {
@@ -53,7 +54,8 @@ public class GradientDescentClassifier implements Classifier {
 	
 	/**
 	 * Set the regularization method to be used. 
-	 * @param regNum
+	 * 
+	 * @param regNum the number associated with a specific regularization method
 	 */
 	protected void setRegularization(int regNum) {
 		if(regNum == 0) 
@@ -66,7 +68,8 @@ public class GradientDescentClassifier implements Classifier {
 	
 	/**
 	 * Set lambda to a new value
-	 * @param newVal
+	 * 
+	 * @param newVal the new value of lambda
 	 */
 	protected void setLambda(double newVal) {
 		lambda = newVal;
@@ -74,7 +77,8 @@ public class GradientDescentClassifier implements Classifier {
 	
 	/**
 	 * Set the eta value to use
-	 * @param newEta
+	 * 
+	 * @param newEta the new value of eta
 	 */
 	protected void setEta(double newEta) {
 		eta = newEta;
@@ -85,7 +89,7 @@ public class GradientDescentClassifier implements Classifier {
 	 * set to 0
 	 * 
 	 * @param features the set of features to learn over
-	 * @return
+	 * @return 
 	 */
 	protected HashMap<Integer, Double> getZeroWeights(Set<Integer> features){
 		HashMap<Integer, Double> temp = new HashMap<Integer, Double>();
@@ -116,6 +120,12 @@ public class GradientDescentClassifier implements Classifier {
 		this.iterations = iterations;
 	}
 	
+	
+	/**
+	 * Train the classifier on data using the gradient descent method with specified loss and regularization methods.
+	 * 
+	 * @param data Set of data to train classifier on.
+	 */
 	public void train(DataSet data) {
 		initializeWeights(data.getAllFeatureIndices());
 		
@@ -125,23 +135,61 @@ public class GradientDescentClassifier implements Classifier {
 			Collections.shuffle(training);
 			
 			for( Example e: training ){
-				if( getPrediction(e) != e.getLabel() ){
 					double label = e.getLabel();
+					
+					double dotProduct = 0.0;
+					for(Integer index : e.getFeatureSet()) {
+						dotProduct += e.getFeature(index) * weights.get(index);
+					}
 					
 					// update the weights
 					//for( Integer featureIndex: weights.keySet() ){
+					double constant = computeConstant(label, dotProduct, b);
 					for( Integer featureIndex: e.getFeatureSet() ){
 						double oldWeight = weights.get(featureIndex);
 						double featureValue = e.getFeature(featureIndex);
 						
-						weights.put(featureIndex, oldWeight + featureValue*label);
+						//y_i*x_{ij}
+						double update = featureValue*label*constant;
+						double regularize = computeReg(oldWeight);
+						weights.put(featureIndex, oldWeight + update - regularize); //subtract regularization here?
 					}
+				
 					
 					// update b
-					b += label;					
+					double bUpdate = label*constant;
+					double bRegularize = computeReg(b);
+					b += bUpdate - bRegularize;		 	
 				}
-			}
 		}
+	}
+	
+	/**
+	 * Compute the regularization value
+	 * @param weight value to be used in regularization computation
+	 * @return regularization value based upon method selected
+	 */
+	protected double computeReg(double weight){
+		if(regularization == L1_REGULARIZATION)
+			return eta*lambda*((Math.abs(weight)==weight)? 1 : -1); //return eta*lambda*sign(w_j)
+		else if(regularization == L2_REGULARIZATION)
+			return eta*lambda*(weight); 
+		else 
+			return 0.0; //no regularization
+	}
+	
+	/**
+	 * Compute the constant based on the chosen loss function for a given example
+	 * @param label label of the example being considered
+	 * @param dotProduct (w * x_i)
+	 * @param b bias term
+	 * @return
+	 */
+	protected double computeConstant(double label, double dotProduct, double b) {
+		if(lossFun == EXPONENTIAL_LOSS) 
+			return eta*Math.exp(-label*(dotProduct+b)); //exp(-y_i*(w*x_i + b))
+		else  //hinge loss
+			return eta*((label*(dotProduct + b) < 1) ? 1 : 0); //return 1 if (yy' < 1), 0 otherwise
 	}
 
 	@Override
@@ -209,4 +257,32 @@ public class GradientDescentClassifier implements Classifier {
 		
 		return buffer.substring(0, buffer.length()-1);
 	}
+	
+	
+	public static void main(String[] args) {
+		GradientDescentClassifier c = new GradientDescentClassifier();
+		//c.setLoss(2);
+		c.setRegularization(1);
+		
+		String csv = "/Users/maddie/Documents/FALL2016/MachineLearning/hw4/titanic-train.perc.csv";
+		DataSet data = new DataSet(csv, 0);
+		DataSetSplit dss = data.split(.7);
+		c.train(dss.getTrain());
+		double acc = 0.0;
+		double size = dss.getTest().getData().size();
+		for(Example ex: dss.getTest().getData()) {
+			if(c.classify(ex) == ex.getLabel()) {
+				acc += 1/size;
+			}
+		}
+		System.out.println(acc);
+		
+		//for Alg correctness: come up w/ 2-feature example & work through by hand, then run alg to compare output
+		
+		//for experiments, compute accuracy on different regularization/loss combinations
+	}
 }
+
+
+
+
