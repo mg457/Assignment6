@@ -136,7 +136,7 @@ public class GradientDescentClassifier implements Classifier {
 		initializeWeights(data.getAllFeatureIndices());
 
 		ArrayList<Example> training = (ArrayList<Example>) data.getData().clone();
-
+		
 		for (int it = 0; it < iterations; it++) {
 			Collections.shuffle(training);
 
@@ -202,13 +202,11 @@ public class GradientDescentClassifier implements Classifier {
 	 */
 	protected double computeConstant(double label, double dotProduct, double b) {
 		if (lossFun == EXPONENTIAL_LOSS)
-			return eta * Math.exp(-label * (dotProduct + b)); // exp(-y_i*(w*x_i
-																// + b))
+			 // exp(-y_i*(w*x_i + b))
+			return eta * Math.exp(-label * (dotProduct + b));
 		else // hinge loss
-			return eta * ((label * (dotProduct + b) < 1) ? 1 : 0); // return 1
-																	// if (yy' <
-																	// 1), 0
-																	// otherwise
+			return eta * (((label * (dotProduct + b)) < 1) ? 1 : 0); 
+		    // return 1 if (yy' < 1), 0 otherwise
 	}
 
 	@Override
@@ -283,7 +281,7 @@ public class GradientDescentClassifier implements Classifier {
 
 	public static void main(String[] args) {
 		GradientDescentClassifier c = new GradientDescentClassifier();
-		// c.setLoss(2);
+		c.setLoss(2);
 		c.setRegularization(1);
 
 		String csv = "/Users/maddie/Documents/FALL2016/MachineLearning/hw4/titanic-train.perc.csv";
