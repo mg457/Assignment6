@@ -6,9 +6,7 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.Random;
 
-import ml.data.DataSet;
-import ml.data.DataSetSplit;
-import ml.data.Example;
+import ml.data.*;
 
 /**
  * Gradient descent classifier allowing for two different loss functions and
@@ -136,7 +134,7 @@ public class GradientDescentClassifier implements Classifier {
 		initializeWeights(data.getAllFeatureIndices());
 
 		ArrayList<Example> training = (ArrayList<Example>) data.getData().clone();
-		
+
 		for (int it = 0; it < iterations; it++) {
 			Collections.shuffle(training);
 
@@ -158,9 +156,7 @@ public class GradientDescentClassifier implements Classifier {
 					// y_i*x_{ij}
 					double update = featureValue * label * constant;
 					double regularize = computeReg(oldWeight);
-					weights.put(featureIndex, oldWeight + update - regularize); // subtract
-																				// regularization
-																				// here?
+					weights.put(featureIndex, oldWeight + update - regularize); 
 				}
 
 				// update b
@@ -201,12 +197,13 @@ public class GradientDescentClassifier implements Classifier {
 	 * @return
 	 */
 	protected double computeConstant(double label, double dotProduct, double b) {
-		if (lossFun == EXPONENTIAL_LOSS)
-			 // exp(-y_i*(w*x_i + b))
-			return eta * Math.exp(-label * (dotProduct + b));
+		if (lossFun == EXPONENTIAL_LOSS) {
+			// exp(-y_i*(w*x_i + b))
+			//System.out.println("computeConstant: "+ eta * Math.exp(-label * (dotProduct + b)));
+			return eta * Math.exp(-label * (dotProduct + b));}
 		else // hinge loss
-			return eta * (((label * (dotProduct + b)) < 1) ? 1 : 0); 
-		    // return 1 if (yy' < 1), 0 otherwise
+			return eta * (((label * (dotProduct + b)) < 1) ? 1 : 0);
+		// return 1 if (yy' < 1), 0 otherwise
 	}
 
 	@Override
@@ -281,21 +278,39 @@ public class GradientDescentClassifier implements Classifier {
 
 	public static void main(String[] args) {
 		GradientDescentClassifier c = new GradientDescentClassifier();
-		c.setLoss(2);
+		//c.setLoss(0);
 		c.setRegularization(1);
+//		c.setEta(0.05);
+//		c.setLambda(0.05);
 
 		String csv = "/Users/maddie/Documents/FALL2016/MachineLearning/hw4/titanic-train.perc.csv";
 		DataSet data = new DataSet(csv, 0);
-		DataSetSplit dss = data.split(.7);
-		c.train(dss.getTrain());
-		double acc = 0.0;
-		double size = dss.getTest().getData().size();
-		for (Example ex : dss.getTest().getData()) {
-			if (c.classify(ex) == ex.getLabel()) {
-				acc += 1 / size;
+		// DataSetSplit dss = data.split(.7); 
+		//for(int iter = 0; iter < 50; iter++) {
+		CrossValidationSet cs = new CrossValidationSet(data, 10, true);
+		//double avg = 0.0;
+		for (int i = 0; i < cs.getNumSplits(); i++) {
+			double avg = 0.0;
+			DataSetSplit dss = cs.getValidationSet(i);
+
+			for(int iter = 0; iter < 100; iter++) {
+			c.train(dss.getTrain());
+			double acc = 0.0;
+			double size = dss.getTest().getData().size();
+			for (Example ex : dss.getTest().getData()) {
+				//System.out.println(ex.getLabel()+ " classify: " + c.classify(ex));
+
+				if (c.classify(ex) == ex.getLabel()) {
+					acc += 1.0 / size;
+				}
 			}
+			avg += acc / 100.0;
+			//System.out.println(acc);
 		}
-		System.out.println(acc);
+		System.out.println(avg);
+
+		}
+//		}
 
 		// for Alg correctness: come up w/ 2-feature example & work through by
 		// hand, then run alg to compare output
